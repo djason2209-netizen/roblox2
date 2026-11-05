@@ -2,15 +2,7 @@
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local randomGenerator = Random.new()
-
-local upgradeRequest = ReplicatedStorage:FindFirstChild("UpgradeRequest")
-if not upgradeRequest then
-	upgradeRequest = Instance.new("RemoteEvent")
-	upgradeRequest.Name = "UpgradeRequest"
-	upgradeRequest.Parent = ReplicatedStorage
-end
 
 local oldMine = workspace:FindFirstChild("Mine")
 if oldMine then oldMine:Destroy() end
@@ -30,8 +22,6 @@ local VISIBLE_LAYERS = 64
 local CENTER_X = 0
 local CENTER_Z = 0
 local START_SURFACE_Y = 90
--- Negative X appears on the right side of a camera looking in from -Z.
-local STATION_POSITION = Vector3.new(-34, START_SURFACE_Y + 2, 0)
 local topLayer = 0
 local drillLevel = 1
 local refineryLevel = 1
@@ -133,36 +123,6 @@ makeMinerPart("Helmet", Vector3.new(1.6, 0.55, 1.4), Vector3.new(0, 2.25, 0), Co
 makeMinerPart("Lamp", Vector3.new(0.4, 0.35, 0.2), Vector3.new(0, 2.25, -0.75), Color3.fromRGB(255, 247, 165), Enum.Material.Neon)
 makeMinerPart("Boots", Vector3.new(1.35, 0.55, 0.9), Vector3.new(0, -1.25, 0), Color3.fromRGB(47, 49, 55))
 
-local function stationPart(parent, name, size, position, color, material, shape)
-	local part = Instance.new("Part")
-	part.Name = name
-	part.Size = size
-	part.Position = position
-	part.Anchored = true
-	part.CanCollide = false
-	part.Material = material or Enum.Material.SmoothPlastic
-	part.Color = color
-	if shape then part.Shape = shape end
-	part.Parent = parent
-	return part
-end
-
-local station = Instance.new("Model")
-station.Name = "CloudProcessingStation"
-station.Parent = mine
-stationPart(station, "CloudDeck", Vector3.new(24, 1, 18), STATION_POSITION, Color3.fromRGB(235, 246, 255), Enum.Material.SmoothPlastic)
-local factoryBody = stationPart(station, "FactoryBody", Vector3.new(10, 7, 8), STATION_POSITION + Vector3.new(2, 4, 0), Color3.fromRGB(208, 222, 231), Enum.Material.SmoothPlastic)
-local stationWindow = stationPart(station, "Window", Vector3.new(5, 2, 0.2), STATION_POSITION + Vector3.new(2, 4.5, -4.12), Color3.fromRGB(64, 187, 218), Enum.Material.Neon)
-local stationIntake = stationPart(station, "Intake", Vector3.new(5, 1, 4), STATION_POSITION + Vector3.new(-6, 1.2, -3), Color3.fromRGB(255, 171, 58), Enum.Material.Neon)
-stationPart(station, "StorageBin", Vector3.new(5, 3, 5), STATION_POSITION + Vector3.new(7, 2.5, 4), Color3.fromRGB(81, 122, 147), Enum.Material.SmoothPlastic)
-for _, cloudOffset in {Vector3.new(-7, -3, -5), Vector3.new(7, -3, -5), Vector3.new(-7, -3, 5), Vector3.new(7, -3, 5)} do
-	stationPart(station, "Cloud", Vector3.new(5, 4, 5), STATION_POSITION + cloudOffset, Color3.fromRGB(244, 250, 255), Enum.Material.SmoothPlastic, Enum.PartType.Ball)
-end
-for i, offset in {Vector3.new(-8, -1, -7), Vector3.new(8, -1, -7), Vector3.new(-8, -1, 7), Vector3.new(8, -1, 7)} do
-	local drone = stationPart(station, "CarrierDrone", Vector3.new(2, 0.7, 2), STATION_POSITION + offset, Color3.fromRGB(70, 204, 230), Enum.Material.Neon)
-	TweenService:Create(drone, TweenInfo.new(1 + i * 0.12, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Position = drone.Position + Vector3.new(0, 0.8, 0)}):Play()
-end
-
 local function updateStats()
 	for _, player in Players:GetPlayers() do
 		local stats = player:FindFirstChild("PlayerData")
@@ -178,40 +138,6 @@ local function updateStats()
 		end
 	end
 end
-
-local function upgradeCost(kind)
-	if kind == "Drill" then
-		return math.floor(25 * 1.65 ^ (drillLevel - 1))
-	end
-	return math.floor(40 * 1.7 ^ (refineryLevel - 1))
-end
-
-local function refreshStationAppearance()
-	local tint = math.min(refineryLevel - 1, 6)
-	factoryBody.Size = Vector3.new(10, 7 + tint * 0.5, 8)
-	factoryBody.Position = STATION_POSITION + Vector3.new(2, 4 + tint * 0.25, 0)
-	local glow = math.min(drillLevel - 1, 6)
-	stationWindow.Color = Color3.fromRGB(64 + glow * 12, 187 + glow * 8, 218 - glow * 10)
-	stationIntake.Color = Color3.fromRGB(255, 171 + tint * 10, 58 + tint * 8)
-end
-
-upgradeRequest.OnServerEvent:Connect(function(player, kind)
-	if kind ~= "Drill" and kind ~= "Refinery" then return end
-	local stats = player:FindFirstChild("PlayerData")
-	local copper = stats and stats:FindFirstChild("Copper")
-	if not copper then return end
-	local cost = upgradeCost(kind)
-	if copper.Value < cost then return end
-	copper.Value -= cost
-	if kind == "Drill" then
-		drillLevel += 1
-	else
-		refineryLevel += 1
-	end
-	updateStats()
-	refreshStationAppearance()
-end)
-refreshStationAppearance()
 
 local function makeLayer(layerNumber)
 	local layerBlocks = {}
@@ -271,27 +197,12 @@ local function moveMinerTo(position)
 	driver:Destroy()
 end
 
-local function shipOre(fromPosition, reward)
-	local nugget = Instance.new("Part")
-	nugget.Name = "OreShipment"
-	nugget.Size = Vector3.new(0.8, 0.8, 0.8)
-	nugget.Position = fromPosition
-	nugget.Anchored = true
-	nugget.CanCollide = false
-	nugget.Material = Enum.Material.Neon
-	nugget.Color = Color3.fromRGB(255, 169, 54)
-	nugget.Parent = workspace
-	local intake = STATION_POSITION + Vector3.new(-6, 2, -3)
-	local flight = TweenService:Create(nugget, TweenInfo.new(0.65, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {Position = intake})
-	flight.Completed:Connect(function()
-		for _, player in Players:GetPlayers() do
-			local stats = player:FindFirstChild("PlayerData")
-			local copper = stats and stats:FindFirstChild("Copper")
-			if copper then copper.Value += reward end
-		end
-		nugget:Destroy()
-	end)
-	flight:Play()
+local function collectOre(reward)
+	for _, player in Players:GetPlayers() do
+		local stats = player:FindFirstChild("PlayerData")
+		local copper = stats and stats:FindFirstChild("Copper")
+		if copper then copper.Value += reward end
+	end
 end
 
 local function breakBlock(block)
@@ -356,9 +267,8 @@ while true do
 		task.wait(math.max(0.12, 0.22 - (drillLevel - 1) * 0.015))
 		local baseReward = if chosen:GetAttribute("CopperVein") then 5 else 1
 		local copperReward = math.floor(baseReward * (1 + 0.25 * (refineryLevel - 1)))
-		local shipmentOrigin = chosen.Position
 		breakBlock(chosen)
-		shipOre(shipmentOrigin, copperReward)
+		collectOre(copperReward)
 	else
 		layers[topLayer] = nil
 		topLayer += 1
