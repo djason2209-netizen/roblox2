@@ -25,7 +25,8 @@ mine.Parent = workspace
 
 local BLOCK = 3
 local GRID = 12
-local VISIBLE_LAYERS = 16
+-- Keep enough generated depth on screen that the lower end is never visible.
+local VISIBLE_LAYERS = 64
 local CENTER_X = 0
 local CENTER_Z = 0
 local START_SURFACE_Y = 90
@@ -225,6 +226,8 @@ local function makeLayer(layerNumber)
 			block.Size = Vector3.new(BLOCK, BLOCK, BLOCK)
 			block.Position = Vector3.new(CENTER_X + (x - (GRID - 1) / 2) * BLOCK, y, CENTER_Z + (z - (GRID - 1) / 2) * BLOCK)
 			block.Anchored = true
+			block.CanCollide = false
+			block.CastShadow = false
 			block.Material = Enum.Material.SmoothPlastic
 			local isCopper = layerNumber > 0 and (x * 7 + z * 11 + layerNumber * 3) % 19 == 0
 			if layerNumber == topLayer then
