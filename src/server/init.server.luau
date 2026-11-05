@@ -150,12 +150,12 @@ local activeMiner = Instance.new("ObjectValue")
 activeMiner.Name = "ActiveMiner"
 activeMiner.Value = miners[1]
 activeMiner.Parent = mine
-local nextMinerIndex = 1
 
 local buyFarmer = Instance.new("RemoteFunction")
 buyFarmer.Name = "BuyFarmer"
 buyFarmer.Parent = ReplicatedStorage
 local searchOriginX, searchOriginZ
+local startMinerWork
 
 local function updateStats()
 	for _, player in Players:GetPlayers() do
@@ -209,6 +209,7 @@ buyFarmer.OnServerInvoke = function(player, action)
 	table.insert(miners, newMiner)
 	farmerCount = #miners
 	updateStats()
+	startMinerWork(newMiner)
 	return true, #miners, farmerPrice(), MAX_FARMERS
 end
 
@@ -328,6 +329,7 @@ local function findBlocksInRange(blocks, originX, originZ, radius)
 	local distance = radius * BLOCK
 	for _, block in blocks do
 		if block.Parent
+			and not block:GetAttribute("Claimed")
 			and math.abs(block.Position.X - originX) <= distance
 			and math.abs(block.Position.Z - originZ) <= distance
 		then
@@ -337,7 +339,25 @@ local function findBlocksInRange(blocks, originX, originZ, radius)
 	return candidates
 end
 
-while true do
+local function countClaimedInRange(blocks, originX, originZ, radius)
+	local distance = radius * BLOCK
+	local claimedCount = 0
+	for _, block in blocks do
+		if block.Parent
+			and block:GetAttribute("Claimed")
+			and math.abs(block.Position.X - originX) <= distance
+			and math.abs(block.Position.Z - originZ) <= distance
+		then
+			claimedCount += 1
+		end
+	end
+	return claimedCount
+end
+
+local activeWorkers = 0
+local layerChanging = false
+
+local function claimNextBlock()
 	local topBlocks = layers[topLayer] or {}
 	local edge = (GRID - 1) / 2 * BLOCK
 	local farthestRadius = math.ceil(math.max(
@@ -348,34 +368,61 @@ while true do
 	) / BLOCK)
 	local availableBlocks = findBlocksInRange(topBlocks, searchOriginX, searchOriginZ, searchRadius)
 	while #availableBlocks == 0 and searchRadius < farthestRadius do
+		if countClaimedInRange(topBlocks, searchOriginX, searchOriginZ, searchRadius) > 0 then
+			return nil
+		end
 		searchRadius = math.min(searchRadius + 3, farthestRadius)
 		availableBlocks = findBlocksInRange(topBlocks, searchOriginX, searchOriginZ, searchRadius)
 	end
 	local chosen = if #availableBlocks > 0
 		then availableBlocks[randomGenerator:NextInteger(1, #availableBlocks)]
 		else nil
-	if chosen then
-		local miner = miners[nextMinerIndex]
-		nextMinerIndex = nextMinerIndex % #miners + 1
-		activeMiner.Value = miner
-		moveMinerTo(miner, Vector3.new(chosen.Position.X, currentSurfaceY() + 2, chosen.Position.Z))
-		chosen.Color = Color3.fromRGB(255, 194, 81)
-		task.wait(math.max(0.08, 0.22 / #miners - (drillLevel - 1) * 0.015))
-		breakBlock(chosen)
-		collectResources(chosen)
-	else
-		layers[topLayer] = nil
-		topLayer += 1
-		makeLayer(topLayer + VISIBLE_LAYERS - 1)
-		local minerPosition = activeMiner.Value:GetPivot().Position
-		searchOriginX = minerPosition.X
-		searchOriginZ = minerPosition.Z
-		searchRadius = 3
-		for _, miner in miners do
-			local position = miner:GetPivot().Position
-			miner:PivotTo(CFrame.new(position.X, currentSurfaceY() + 2, position.Z))
-		end
-		updateStats()
-		print("Reached depth layer " .. topLayer)
-	end
+	if chosen then chosen:SetAttribute("Claimed", true) end
+	return chosen
 end
+
+local function advanceLayer()
+	layerChanging = true
+	layers[topLayer] = nil
+	topLayer += 1
+	makeLayer(topLayer + VISIBLE_LAYERS - 1)
+	local minerPosition = activeMiner.Value:GetPivot().Position
+	searchOriginX = minerPosition.X
+	searchOriginZ = minerPosition.Z
+	searchRadius = 3
+	for _, miner in miners do
+		local position = miner:GetPivot().Position
+		miner:PivotTo(CFrame.new(position.X, currentSurfaceY() + 2, position.Z))
+	end
+	updateStats()
+	print("Reached depth layer " .. topLayer)
+	layerChanging = false
+end
+
+startMinerWork = function(miner)
+	task.spawn(function()
+		while miner.Parent do
+			if layerChanging then
+				task.wait(0.05)
+			else
+				local chosen = claimNextBlock()
+				if chosen then
+					activeWorkers += 1
+					activeMiner.Value = miner
+					moveMinerTo(miner, Vector3.new(chosen.Position.X, currentSurfaceY() + 2, chosen.Position.Z))
+					chosen.Color = Color3.fromRGB(255, 194, 81)
+					task.wait(math.max(0.08, 0.22 - (drillLevel - 1) * 0.015))
+					breakBlock(chosen)
+					collectResources(chosen)
+					activeWorkers -= 1
+				elseif activeWorkers == 0 then
+					advanceLayer()
+				else
+					task.wait(0.05)
+				end
+			end
+		end
+	end)
+end
+
+for _, miner in miners do startMinerWork(miner) end
