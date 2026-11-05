@@ -65,12 +65,24 @@ local function setPlayerStats(player)
 	local farmers = stats:FindFirstChild("Farmers") or Instance.new("IntValue")
 	farmers.Name = "Farmers"
 	farmers.Parent = stats
+	local stone = stats:FindFirstChild("Stone") or Instance.new("IntValue")
+	stone.Name = "Stone"
+	stone.Parent = stats
+	local iron = stats:FindFirstChild("Iron") or Instance.new("IntValue")
+	iron.Name = "Iron"
+	iron.Parent = stats
+	local gold = stats:FindFirstChild("Gold") or Instance.new("IntValue")
+	gold.Name = "Gold"
+	gold.Parent = stats
 	copper.Value = copper.Value or 0
 	depth.Value = topLayer
 	mineLevel.Value = math.floor(topLayer / 4) + 1
 	drill.Value = drillLevel
 	refinery.Value = refineryLevel
 	farmers.Value = farmerCount
+	stone.Value = stone.Value or 0
+	iron.Value = iron.Value or 0
+	gold.Value = gold.Value or 0
 end
 
 Players.PlayerAdded:Connect(setPlayerStats)
@@ -216,14 +228,30 @@ local function makeLayer(layerNumber)
 			block.CanCollide = false
 			block.CastShadow = false
 			block.Material = Enum.Material.SmoothPlastic
-			local isCopper = layerNumber > 0 and (x * 7 + z * 11 + layerNumber * 3) % 19 == 0
+			local roll = (x * 37 + z * 17 + layerNumber * 13) % 100 + 1
+			local resourceType = "Stone"
+			if layerNumber >= 12 and roll <= 2 then
+				resourceType = "Gold"
+			elseif layerNumber >= 4 and roll <= 9 then
+				resourceType = "Iron"
+			elseif layerNumber >= 4 and roll <= 15 then
+				resourceType = "Copper"
+			elseif layerNumber > 0 and layerNumber < 4 and roll <= 6 then
+				resourceType = "Copper"
+			end
 			if layerNumber == topLayer then
-				block.Color = if isCopper then Color3.fromRGB(220, 116, 48) else Color3.fromRGB(91, 178, 91)
+				block.Color = if resourceType == "Stone" then Color3.fromRGB(91, 178, 91)
+					elseif resourceType == "Copper" then Color3.fromRGB(220, 116, 48)
+					elseif resourceType == "Iron" then Color3.fromRGB(190, 196, 199)
+					else Color3.fromRGB(255, 202, 60)
 			else
-				block.Color = if isCopper then Color3.fromRGB(220, 116, 48) else oreColors[colorIndex]
+				block.Color = if resourceType == "Copper" then Color3.fromRGB(220, 116, 48)
+					elseif resourceType == "Iron" then Color3.fromRGB(190, 196, 199)
+					elseif resourceType == "Gold" then Color3.fromRGB(255, 202, 60)
+					else oreColors[colorIndex]
 			end
 			block:SetAttribute("DepthLayer", layerNumber)
-			block:SetAttribute("CopperVein", isCopper)
+			block:SetAttribute("ResourceType", resourceType)
 			block.Parent = mine
 			layerBlocks[#layerBlocks + 1] = block
 		end
@@ -258,11 +286,15 @@ local function moveMinerTo(miner, position)
 	driver:Destroy()
 end
 
-local function collectOre(reward)
+local function collectResources(block)
+	local resourceType = block:GetAttribute("ResourceType") or "Stone"
+	local resourceReward = if resourceType == "Copper" then 5 else 1
 	for _, player in Players:GetPlayers() do
 		local stats = player:FindFirstChild("PlayerData")
-		local copper = stats and stats:FindFirstChild("Copper")
-		if copper then copper.Value += reward end
+		local stone = stats and stats:FindFirstChild("Stone")
+		local resource = stats and stats:FindFirstChild(resourceType)
+		if stone then stone.Value += 1 end
+		if resourceType ~= "Stone" and resource then resource.Value += resourceReward end
 	end
 end
 
@@ -329,10 +361,8 @@ while true do
 		moveMinerTo(miner, Vector3.new(chosen.Position.X, currentSurfaceY() + 2, chosen.Position.Z))
 		chosen.Color = Color3.fromRGB(255, 194, 81)
 		task.wait(math.max(0.08, 0.22 / #miners - (drillLevel - 1) * 0.015))
-		local baseReward = if chosen:GetAttribute("CopperVein") then 5 else 1
-		local copperReward = math.floor(baseReward * (1 + 0.25 * (refineryLevel - 1)))
 		breakBlock(chosen)
-		collectOre(copperReward)
+		collectResources(chosen)
 	else
 		layers[topLayer] = nil
 		topLayer += 1
