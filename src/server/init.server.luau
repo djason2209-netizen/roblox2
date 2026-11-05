@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local randomGenerator = Random.new()
 
 local upgradeRequest = ReplicatedStorage:FindFirstChild("UpgradeRequest")
 if not upgradeRequest then
@@ -239,39 +240,9 @@ local function makeLayer(layerNumber)
 	end
 end
 
--- Use a center-out spiral so the worker visits individual neighboring blocks.
-local function createMiningPath()
-	local outsideIn = {}
-	local left, right = 0, GRID - 1
-	local top, bottom = 0, GRID - 1
-	while left <= right and top <= bottom do
-		for z = left, right do table.insert(outsideIn, { x = top, z = z }) end
-		top += 1
-		for x = top, bottom do table.insert(outsideIn, { x = x, z = right }) end
-		right -= 1
-		if top <= bottom then
-			for z = right, left, -1 do table.insert(outsideIn, { x = bottom, z = z }) end
-			bottom -= 1
-		end
-		if left <= right then
-			for x = bottom, top, -1 do table.insert(outsideIn, { x = x, z = left }) end
-			left += 1
-		end
-	end
-	local centerOut = {}
-	for index = #outsideIn, 1, -1 do table.insert(centerOut, outsideIn[index]) end
-	return centerOut
-end
-
-local miningPath = createMiningPath()
-local pathIndex = 1
-
 -- Keep a deep slice of the mine rendered below the miners; append new rock at the bottom forever.
 for layer = 0, VISIBLE_LAYERS - 1 do makeLayer(layer) end
-local firstBlock = miningPath[1]
-local firstBlockX = CENTER_X + (firstBlock.x - (GRID - 1) / 2) * BLOCK
-local firstBlockZ = CENTER_Z + (firstBlock.z - (GRID - 1) / 2) * BLOCK
-miner:PivotTo(CFrame.new(firstBlockX, currentSurfaceY() + 2, firstBlockZ))
+miner:PivotTo(CFrame.new(CENTER_X, currentSurfaceY() + 2, CENTER_Z))
 
 local function moveMinerTo(position)
 	local start = miner:GetPivot()
@@ -343,17 +314,13 @@ end
 
 while true do
 	local topBlocks = layers[topLayer] or {}
-	local chosen
-	while pathIndex <= #miningPath do
-		local point = miningPath[pathIndex]
-		pathIndex += 1
-		local blockIndex = point.x * GRID + point.z + 1
-		local block = topBlocks[blockIndex]
-		if block and block.Parent then
-			chosen = block
-			break
-		end
+	local availableBlocks = {}
+	for _, block in topBlocks do
+		if block.Parent then table.insert(availableBlocks, block) end
 	end
+	local chosen = if #availableBlocks > 0
+		then availableBlocks[randomGenerator:NextInteger(1, #availableBlocks)]
+		else nil
 	if chosen then
 		moveMinerTo(Vector3.new(chosen.Position.X, currentSurfaceY() + 2, chosen.Position.Z))
 		chosen.Color = Color3.fromRGB(255, 194, 81)
@@ -367,7 +334,6 @@ while true do
 		layers[topLayer] = nil
 		topLayer += 1
 		makeLayer(topLayer + VISIBLE_LAYERS - 1)
-		pathIndex = 1
 		updateStats()
 		print("Reached depth layer " .. topLayer)
 	end
