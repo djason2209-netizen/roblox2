@@ -242,7 +242,11 @@ end
 
 -- Keep a deep slice of the mine rendered below the miners; append new rock at the bottom forever.
 for layer = 0, VISIBLE_LAYERS - 1 do makeLayer(layer) end
-miner:PivotTo(CFrame.new(CENTER_X, currentSurfaceY() + 2, CENTER_Z))
+local spawnGridIndex = math.floor((GRID - 1) / 2)
+local searchOriginX = CENTER_X + (spawnGridIndex - (GRID - 1) / 2) * BLOCK
+local searchOriginZ = CENTER_Z + (spawnGridIndex - (GRID - 1) / 2) * BLOCK
+local searchRadius = 3
+miner:PivotTo(CFrame.new(searchOriginX, currentSurfaceY() + 2, searchOriginZ))
 
 local function moveMinerTo(position)
 	local start = miner:GetPivot()
@@ -312,11 +316,33 @@ local function breakBlock(block)
 	block:Destroy()
 end
 
+local function findBlocksInRange(blocks, originX, originZ, radius)
+	local candidates = {}
+	local distance = radius * BLOCK
+	for _, block in blocks do
+		if block.Parent
+			and math.abs(block.Position.X - originX) <= distance
+			and math.abs(block.Position.Z - originZ) <= distance
+		then
+			table.insert(candidates, block)
+		end
+	end
+	return candidates
+end
+
 while true do
 	local topBlocks = layers[topLayer] or {}
-	local availableBlocks = {}
-	for _, block in topBlocks do
-		if block.Parent then table.insert(availableBlocks, block) end
+	local edge = (GRID - 1) / 2 * BLOCK
+	local farthestRadius = math.ceil(math.max(
+		math.abs(searchOriginX - (CENTER_X - edge)),
+		math.abs(searchOriginX - (CENTER_X + edge)),
+		math.abs(searchOriginZ - (CENTER_Z - edge)),
+		math.abs(searchOriginZ - (CENTER_Z + edge))
+	) / BLOCK)
+	local availableBlocks = findBlocksInRange(topBlocks, searchOriginX, searchOriginZ, searchRadius)
+	while #availableBlocks == 0 and searchRadius < farthestRadius do
+		searchRadius = math.min(searchRadius + 3, farthestRadius)
+		availableBlocks = findBlocksInRange(topBlocks, searchOriginX, searchOriginZ, searchRadius)
 	end
 	local chosen = if #availableBlocks > 0
 		then availableBlocks[randomGenerator:NextInteger(1, #availableBlocks)]
@@ -334,6 +360,10 @@ while true do
 		layers[topLayer] = nil
 		topLayer += 1
 		makeLayer(topLayer + VISIBLE_LAYERS - 1)
+		local minerPosition = miner:GetPivot().Position
+		searchOriginX = minerPosition.X
+		searchOriginZ = minerPosition.Z
+		searchRadius = 3
 		updateStats()
 		print("Reached depth layer " .. topLayer)
 	end
