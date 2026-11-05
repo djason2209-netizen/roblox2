@@ -6,12 +6,13 @@ local function frameMine()
 	task.wait(1)
 	local camera = workspace.CurrentCamera
 	local mine = workspace:WaitForChild("Mine")
-	local miner = mine:WaitForChild("Miner")
+	local activeMiner = mine:WaitForChild("ActiveMiner")
 	camera.CameraType = Enum.CameraType.Scriptable
 	camera.FieldOfView = 50
 	RunService:UnbindFromRenderStep("FollowMiner")
 	RunService:BindToRenderStep("FollowMiner", Enum.RenderPriority.Camera.Value + 1, function()
-		if not miner.Parent then return end
+		local miner = activeMiner.Value
+		if not miner or not miner.Parent then return end
 		local minerPosition = miner:GetPivot().Position
 		-- Look down across the field from a little farther back, like a diorama view.
 		-- The horizontal focus stays on the mine while it follows the worker downwards.

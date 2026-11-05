@@ -1,5 +1,6 @@
 -- Endless downward mine: fixed 12x12 cross-section, with new layers generated forever.
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 local randomGenerator = Random.new()
@@ -17,12 +18,14 @@ mine.Parent = workspace
 
 local BLOCK = 3
 local GRID = 12
+local MAX_FARMERS = 10
 -- Keep enough generated depth on screen that the lower end is never visible.
 local VISIBLE_LAYERS = 64
 local CENTER_X = 0
 local CENTER_Z = 0
 local START_SURFACE_Y = 90
 local topLayer = 0
+local farmerCount = 1
 local drillLevel = 1
 local refineryLevel = 1
 local layers = {}
@@ -59,11 +62,15 @@ local function setPlayerStats(player)
 	local refinery = stats:FindFirstChild("Refinery") or Instance.new("IntValue")
 	refinery.Name = "Refinery"
 	refinery.Parent = stats
+	local farmers = stats:FindFirstChild("Farmers") or Instance.new("IntValue")
+	farmers.Name = "Farmers"
+	farmers.Parent = stats
 	copper.Value = copper.Value or 0
 	depth.Value = topLayer
 	mineLevel.Value = math.floor(topLayer / 4) + 1
 	drill.Value = drillLevel
 	refinery.Value = refineryLevel
+	farmers.Value = farmerCount
 end
 
 Players.PlayerAdded:Connect(setPlayerStats)
@@ -102,26 +109,41 @@ for _, player in Players:GetPlayers() do
 	if player.Character then task.spawn(parkCharacter, player.Character) end
 end
 
-local miner = Instance.new("Model")
-miner.Name = "Miner"
-miner.Parent = mine
-local function makeMinerPart(name, size, offset, color, material)
-	local part = Instance.new("Part")
-	part.Name = name
-	part.Size = size
-	part.Anchored = true
-	part.CanCollide = false
-	part.Material = material or Enum.Material.SmoothPlastic
-	part.Color = color
-	part.CFrame = CFrame.new(offset)
-	part.Parent = miner
-	return part
+local function createMiner(name)
+	local miner = Instance.new("Model")
+	miner.Name = name
+	miner.Parent = mine
+	local function makeMinerPart(name, size, offset, color, material)
+		local part = Instance.new("Part")
+		part.Name = name
+		part.Size = size
+		part.Anchored = true
+		part.CanCollide = false
+		part.Material = material or Enum.Material.SmoothPlastic
+		part.Color = color
+		part.CFrame = CFrame.new(offset)
+		part.Parent = miner
+		return part
+	end
+	makeMinerPart("Body", Vector3.new(1.5, 2, 1), Vector3.new(0, 0, 0), Color3.fromRGB(227, 111, 39))
+	makeMinerPart("Head", Vector3.new(1.2, 1.2, 1), Vector3.new(0, 1.6, 0), Color3.fromRGB(255, 207, 159))
+	makeMinerPart("Helmet", Vector3.new(1.6, 0.55, 1.4), Vector3.new(0, 2.25, 0), Color3.fromRGB(255, 190, 43))
+	makeMinerPart("Lamp", Vector3.new(0.4, 0.35, 0.2), Vector3.new(0, 2.25, -0.75), Color3.fromRGB(255, 247, 165), Enum.Material.Neon)
+	makeMinerPart("Boots", Vector3.new(1.35, 0.55, 0.9), Vector3.new(0, -1.25, 0), Color3.fromRGB(47, 49, 55))
+	return miner
 end
-makeMinerPart("Body", Vector3.new(1.5, 2, 1), Vector3.new(0, 0, 0), Color3.fromRGB(227, 111, 39))
-makeMinerPart("Head", Vector3.new(1.2, 1.2, 1), Vector3.new(0, 1.6, 0), Color3.fromRGB(255, 207, 159))
-makeMinerPart("Helmet", Vector3.new(1.6, 0.55, 1.4), Vector3.new(0, 2.25, 0), Color3.fromRGB(255, 190, 43))
-makeMinerPart("Lamp", Vector3.new(0.4, 0.35, 0.2), Vector3.new(0, 2.25, -0.75), Color3.fromRGB(255, 247, 165), Enum.Material.Neon)
-makeMinerPart("Boots", Vector3.new(1.35, 0.55, 0.9), Vector3.new(0, -1.25, 0), Color3.fromRGB(47, 49, 55))
+
+local miners = { createMiner("Miner") }
+local activeMiner = Instance.new("ObjectValue")
+activeMiner.Name = "ActiveMiner"
+activeMiner.Value = miners[1]
+activeMiner.Parent = mine
+local nextMinerIndex = 1
+
+local buyFarmer = Instance.new("RemoteFunction")
+buyFarmer.Name = "BuyFarmer"
+buyFarmer.Parent = ReplicatedStorage
+local searchOriginX, searchOriginZ
 
 local function updateStats()
 	for _, player in Players:GetPlayers() do
@@ -131,12 +153,48 @@ local function updateStats()
 			local level = stats:FindFirstChild("Mine")
 			local drill = stats:FindFirstChild("Drill")
 			local refinery = stats:FindFirstChild("Refinery")
+			local farmers = stats:FindFirstChild("Farmers")
 			if depth then depth.Value = topLayer end
 			if level then level.Value = math.floor(topLayer / 4) + 1 end
 			if drill then drill.Value = drillLevel end
 			if refinery then refinery.Value = refineryLevel end
+			if farmers then farmers.Value = farmerCount end
 		end
 	end
+end
+
+local function farmerPrice()
+	return 25 * #miners
+end
+
+buyFarmer.OnServerInvoke = function(player)
+	if typeof(searchOriginX) ~= "number" or typeof(searchOriginZ) ~= "number" then
+		return false, "Mine is loading."
+	end
+	if #miners >= MAX_FARMERS then
+		return false, "Maximum number of farmers reached."
+	end
+	local stats = player:FindFirstChild("PlayerData")
+	local copper = stats and stats:FindFirstChild("Copper")
+	local price = farmerPrice()
+	if not copper or copper.Value < price then
+		return false, "Not enough copper.", price
+	end
+
+	copper.Value -= price
+	local newMiner = createMiner("Farmer" .. tostring(#miners + 1))
+	local offsets = {
+		Vector2.new(-BLOCK, 0), Vector2.new(BLOCK, 0),
+		Vector2.new(0, -BLOCK), Vector2.new(0, BLOCK),
+		Vector2.new(-BLOCK, -BLOCK), Vector2.new(BLOCK, -BLOCK),
+		Vector2.new(-BLOCK, BLOCK), Vector2.new(BLOCK, BLOCK),
+	}
+	local offset = offsets[#miners] or Vector2.zero
+	newMiner:PivotTo(CFrame.new(searchOriginX + offset.X, currentSurfaceY() + 2, searchOriginZ + offset.Y))
+	table.insert(miners, newMiner)
+	farmerCount = #miners
+	updateStats()
+	return true, #miners, farmerPrice()
 end
 
 local function makeLayer(layerNumber)
@@ -172,12 +230,12 @@ end
 -- Keep a deep slice of the mine rendered below the miners; append new rock at the bottom forever.
 for layer = 0, VISIBLE_LAYERS - 1 do makeLayer(layer) end
 local spawnGridIndex = math.floor((GRID - 1) / 2)
-local searchOriginX = CENTER_X + (spawnGridIndex - (GRID - 1) / 2) * BLOCK
-local searchOriginZ = CENTER_Z + (spawnGridIndex - (GRID - 1) / 2) * BLOCK
+searchOriginX = CENTER_X + (spawnGridIndex - (GRID - 1) / 2) * BLOCK
+searchOriginZ = CENTER_Z + (spawnGridIndex - (GRID - 1) / 2) * BLOCK
 local searchRadius = 3
-miner:PivotTo(CFrame.new(searchOriginX, currentSurfaceY() + 2, searchOriginZ))
+miners[1]:PivotTo(CFrame.new(searchOriginX, currentSurfaceY() + 2, searchOriginZ))
 
-local function moveMinerTo(position)
+local function moveMinerTo(miner, position)
 	local start = miner:GetPivot()
 	local offset = position - start.Position
 	local horizontalOffset = Vector3.new(offset.X, 0, offset.Z)
@@ -262,9 +320,12 @@ while true do
 		then availableBlocks[randomGenerator:NextInteger(1, #availableBlocks)]
 		else nil
 	if chosen then
-		moveMinerTo(Vector3.new(chosen.Position.X, currentSurfaceY() + 2, chosen.Position.Z))
+		local miner = miners[nextMinerIndex]
+		nextMinerIndex = nextMinerIndex % #miners + 1
+		activeMiner.Value = miner
+		moveMinerTo(miner, Vector3.new(chosen.Position.X, currentSurfaceY() + 2, chosen.Position.Z))
 		chosen.Color = Color3.fromRGB(255, 194, 81)
-		task.wait(math.max(0.12, 0.22 - (drillLevel - 1) * 0.015))
+		task.wait(math.max(0.08, 0.22 / #miners - (drillLevel - 1) * 0.015))
 		local baseReward = if chosen:GetAttribute("CopperVein") then 5 else 1
 		local copperReward = math.floor(baseReward * (1 + 0.25 * (refineryLevel - 1)))
 		breakBlock(chosen)
@@ -273,10 +334,14 @@ while true do
 		layers[topLayer] = nil
 		topLayer += 1
 		makeLayer(topLayer + VISIBLE_LAYERS - 1)
-		local minerPosition = miner:GetPivot().Position
+		local minerPosition = activeMiner.Value:GetPivot().Position
 		searchOriginX = minerPosition.X
 		searchOriginZ = minerPosition.Z
 		searchRadius = 3
+		for _, miner in miners do
+			local position = miner:GetPivot().Position
+			miner:PivotTo(CFrame.new(position.X, currentSurfaceY() + 2, position.Z))
+		end
 		updateStats()
 		print("Reached depth layer " .. topLayer)
 	end
