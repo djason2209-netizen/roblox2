@@ -46,10 +46,10 @@ local function currentSurfaceY()
 end
 
 local function setPlayerStats(player)
-	local stats = player:FindFirstChild("leaderstats")
+	local stats = player:FindFirstChild("PlayerData")
 	if not stats then
 		stats = Instance.new("Folder")
-		stats.Name = "leaderstats"
+		stats.Name = "PlayerData"
 		stats.Parent = player
 	end
 	local copper = stats:FindFirstChild("Copper") or Instance.new("IntValue")
@@ -163,7 +163,7 @@ end
 
 local function updateStats()
 	for _, player in Players:GetPlayers() do
-		local stats = player:FindFirstChild("leaderstats")
+		local stats = player:FindFirstChild("PlayerData")
 		if stats then
 			local depth = stats:FindFirstChild("Depth")
 			local level = stats:FindFirstChild("Mine")
@@ -195,7 +195,7 @@ end
 
 upgradeRequest.OnServerEvent:Connect(function(player, kind)
 	if kind ~= "Drill" and kind ~= "Refinery" then return end
-	local stats = player:FindFirstChild("leaderstats")
+	local stats = player:FindFirstChild("PlayerData")
 	local copper = stats and stats:FindFirstChild("Copper")
 	if not copper then return end
 	local cost = upgradeCost(kind)
@@ -307,7 +307,7 @@ local function shipOre(fromPosition, reward)
 	local flight = TweenService:Create(nugget, TweenInfo.new(0.65, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {Position = intake})
 	flight.Completed:Connect(function()
 		for _, player in Players:GetPlayers() do
-			local stats = player:FindFirstChild("leaderstats")
+			local stats = player:FindFirstChild("PlayerData")
 			local copper = stats and stats:FindFirstChild("Copper")
 			if copper then copper.Value += reward end
 		end
