@@ -236,9 +236,59 @@ local function makeLayer(layerNumber)
 	end
 end
 
+-- Use a center-out spiral so the worker visits individual neighboring blocks.
+local function createMiningPath()
+	local outsideIn = {}
+	local left, right = 0, GRID - 1
+	local top, bottom = 0, GRID - 1
+	while left <= right and top <= bottom do
+		for z = left, right do table.insert(outsideIn, { x = top, z = z }) end
+		top += 1
+		for x = top, bottom do table.insert(outsideIn, { x = x, z = right }) end
+		right -= 1
+		if top <= bottom then
+			for z = right, left, -1 do table.insert(outsideIn, { x = bottom, z = z }) end
+			bottom -= 1
+		end
+		if left <= right then
+			for x = bottom, top, -1 do table.insert(outsideIn, { x = x, z = left }) end
+			left += 1
+		end
+	end
+	local centerOut = {}
+	for index = #outsideIn, 1, -1 do table.insert(centerOut, outsideIn[index]) end
+	return centerOut
+end
+
+local miningPath = createMiningPath()
+local pathIndex = 1
+
 -- Keep a deep slice of the mine rendered below the miners; append new rock at the bottom forever.
 for layer = 0, VISIBLE_LAYERS - 1 do makeLayer(layer) end
-miner:PivotTo(CFrame.new(CENTER_X, currentSurfaceY() + 2, CENTER_Z))
+local firstBlock = miningPath[1]
+local firstBlockX = CENTER_X + (firstBlock.x - (GRID - 1) / 2) * BLOCK
+local firstBlockZ = CENTER_Z + (firstBlock.z - (GRID - 1) / 2) * BLOCK
+miner:PivotTo(CFrame.new(firstBlockX, currentSurfaceY() + 2, firstBlockZ))
+
+local function moveMinerTo(position)
+	local start = miner:GetPivot()
+	local offset = position - start.Position
+	local horizontalOffset = Vector3.new(offset.X, 0, offset.Z)
+	local goal = if horizontalOffset.Magnitude > 0.01
+		then CFrame.lookAt(position, position + horizontalOffset.Unit)
+		else CFrame.new(position)
+	local driver = Instance.new("CFrameValue")
+	driver.Value = start
+	local movement = driver:GetPropertyChangedSignal("Value"):Connect(function()
+		if miner.Parent then miner:PivotTo(driver.Value) end
+	end)
+	local duration = math.max(0.08, offset.Magnitude / 12)
+	local tween = TweenService:Create(driver, TweenInfo.new(duration, Enum.EasingStyle.Linear), { Value = goal })
+	tween:Play()
+	tween.Completed:Wait()
+	movement:Disconnect()
+	driver:Destroy()
+end
 
 local function shipOre(fromPosition, reward)
 	local nugget = Instance.new("Part")
@@ -291,13 +341,20 @@ end
 while true do
 	local topBlocks = layers[topLayer] or {}
 	local chosen
-	for _, block in topBlocks do
-		if block.Parent then chosen = block break end
+	while pathIndex <= #miningPath do
+		local point = miningPath[pathIndex]
+		pathIndex += 1
+		local blockIndex = point.x * GRID + point.z + 1
+		local block = topBlocks[blockIndex]
+		if block and block.Parent then
+			chosen = block
+			break
+		end
 	end
 	if chosen then
-		miner:PivotTo(CFrame.new(chosen.Position.X, currentSurfaceY() + 2, chosen.Position.Z))
+		moveMinerTo(Vector3.new(chosen.Position.X, currentSurfaceY() + 2, chosen.Position.Z))
 		chosen.Color = Color3.fromRGB(255, 194, 81)
-		task.wait(math.max(0.16, 0.32 - (drillLevel - 1) * 0.025))
+		task.wait(math.max(0.12, 0.22 - (drillLevel - 1) * 0.015))
 		local baseReward = if chosen:GetAttribute("CopperVein") then 5 else 1
 		local copperReward = math.floor(baseReward * (1 + 0.25 * (refineryLevel - 1)))
 		local shipmentOrigin = chosen.Position
@@ -307,7 +364,7 @@ while true do
 		layers[topLayer] = nil
 		topLayer += 1
 		makeLayer(topLayer + VISIBLE_LAYERS - 1)
-		miner:PivotTo(CFrame.new(CENTER_X, currentSurfaceY() + 2, CENTER_Z))
+		pathIndex = 1
 		updateStats()
 		print("Reached depth layer " .. topLayer)
 	end
