@@ -137,11 +137,36 @@ local function createMiner(name)
 		part.Parent = miner
 		return part
 	end
-	makeMinerPart("Body", Vector3.new(1.5, 2, 1), Vector3.new(0, 0, 0), Color3.fromRGB(227, 111, 39))
+	local body = makeMinerPart("Body", Vector3.new(1.5, 2, 1), Vector3.new(0, 0, 0), Color3.fromRGB(227, 111, 39))
+	miner.PrimaryPart = body
 	makeMinerPart("Head", Vector3.new(1.2, 1.2, 1), Vector3.new(0, 1.6, 0), Color3.fromRGB(255, 207, 159))
 	makeMinerPart("Helmet", Vector3.new(1.6, 0.55, 1.4), Vector3.new(0, 2.25, 0), Color3.fromRGB(255, 190, 43))
 	makeMinerPart("Lamp", Vector3.new(0.4, 0.35, 0.2), Vector3.new(0, 2.25, -0.75), Color3.fromRGB(255, 247, 165), Enum.Material.Neon)
 	makeMinerPart("Boots", Vector3.new(1.35, 0.55, 0.9), Vector3.new(0, -1.25, 0), Color3.fromRGB(47, 49, 55))
+	makeMinerPart("RightArm", Vector3.new(0.45, 1.35, 0.45), Vector3.new(0.98, 0.12, 0), Color3.fromRGB(227, 111, 39))
+	makeMinerPart("LeftArm", Vector3.new(0.45, 1.35, 0.45), Vector3.new(-0.98, 0.12, 0), Color3.fromRGB(227, 111, 39))
+
+	local pickaxe = Instance.new("Model")
+	pickaxe.Name = "Pickaxe"
+	pickaxe.Parent = miner
+	local handle = Instance.new("Part")
+	handle.Name = "Handle"
+	handle.Size = Vector3.new(0.22, 1.5, 0.22)
+	handle.Anchored = true
+	handle.CanCollide = false
+	handle.Material = Enum.Material.Wood
+	handle.Color = Color3.fromRGB(111, 72, 42)
+	handle.CFrame = CFrame.new(1.08, 0.72, -0.12) * CFrame.Angles(0, 0, math.rad(-18))
+	handle.Parent = pickaxe
+	local pickaxeHead = Instance.new("Part")
+	pickaxeHead.Name = "Head"
+	pickaxeHead.Size = Vector3.new(1.1, 0.32, 0.42)
+	pickaxeHead.Anchored = true
+	pickaxeHead.CanCollide = false
+	pickaxeHead.Material = Enum.Material.Metal
+	pickaxeHead.Color = Color3.fromRGB(185, 193, 197)
+	pickaxeHead.CFrame = CFrame.new(1.08, 1.35, -0.12) * CFrame.Angles(0, 0, math.rad(-18))
+	pickaxeHead.Parent = pickaxe
 	return miner
 end
 
@@ -324,6 +349,29 @@ local function breakBlock(block)
 	block:Destroy()
 end
 
+local function swingPickaxe(miner)
+	local pickaxe = miner:FindFirstChild("Pickaxe")
+	if not pickaxe then return end
+	local start = pickaxe:GetPivot()
+	local driver = Instance.new("CFrameValue")
+	driver.Value = start
+	local movement = driver:GetPropertyChangedSignal("Value"):Connect(function()
+		if pickaxe.Parent then pickaxe:PivotTo(driver.Value) end
+	end)
+	local function swingTo(pivot, duration)
+		local tween = TweenService:Create(driver, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Value = pivot,
+		})
+		tween:Play()
+		tween.Completed:Wait()
+	end
+	swingTo(start * CFrame.Angles(0, 0, math.rad(-55)), 0.12)
+	swingTo(start * CFrame.Angles(0, 0, math.rad(65)), 0.1)
+	swingTo(start, 0.08)
+	movement:Disconnect()
+	driver:Destroy()
+end
+
 local function findBlocksInRange(blocks, originX, originZ, radius)
 	local candidates = {}
 	local distance = radius * BLOCK
@@ -411,7 +459,8 @@ startMinerWork = function(miner)
 					activeMiner.Value = miner
 					moveMinerTo(miner, Vector3.new(chosen.Position.X, currentSurfaceY() + 2, chosen.Position.Z))
 					chosen.Color = Color3.fromRGB(255, 194, 81)
-					task.wait(math.max(0.08, 0.22 - (drillLevel - 1) * 0.015))
+					swingPickaxe(miner)
+					task.wait(math.max(0.04, 0.12 - (drillLevel - 1) * 0.01))
 					breakBlock(chosen)
 					collectResources(chosen)
 					activeWorkers -= 1
