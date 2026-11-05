@@ -35,6 +35,56 @@ local oreColors = {
 	Color3.fromRGB(74, 73, 78),
 	Color3.fromRGB(59, 71, 82),
 }
+local soilPebbleColors = {
+	Color3.fromRGB(111, 69, 43),
+	Color3.fromRGB(143, 91, 55),
+	Color3.fromRGB(171, 113, 71),
+	Color3.fromRGB(91, 62, 44),
+}
+
+-- Small embedded rubble gives the dirt strata a chunky, hand-built look without
+-- leaving gaps between the main cubes. Decorations are children of their block,
+-- so they disappear with it when a farmer mines it.
+local function addSoilRubble(block, x, z, layerNumber)
+	local seed = x * 7919 + z * 104729 + layerNumber * 15485863
+	local rng = Random.new(seed)
+	if rng:NextNumber() > 0.32 then return end
+
+	local function pebble(size, position, rotation)
+		local piece = Instance.new("Part")
+		piece.Name = "SoilPebble"
+		piece.Size = size
+		piece.Position = position
+		piece.Orientation = rotation
+		piece.Anchored = true
+		piece.CanCollide = false
+		piece.CastShadow = false
+		piece.Material = Enum.Material.Slate
+		piece.Color = soilPebbleColors[rng:NextInteger(1, #soilPebbleColors)]
+		piece.Parent = block
+	end
+
+	local half = BLOCK / 2
+	local count = rng:NextInteger(3, 5)
+	for _ = 1, count do
+		local sx = rng:NextNumber(0.2, 0.55)
+		local sz = rng:NextNumber(0.2, 0.5)
+		local px = rng:NextNumber(-half + 0.28, half - 0.28)
+		local pz = rng:NextNumber(-half + 0.28, half - 0.28)
+		local py = block.Position.Y + half - rng:NextNumber(0.02, 0.08)
+		pebble(Vector3.new(sx, rng:NextNumber(0.12, 0.26), sz), Vector3.new(block.Position.X + px, py, block.Position.Z + pz), Vector3.new(0, rng:NextInteger(0, 45), 0))
+	end
+
+	-- A few stones are pressed into the camera-facing side too, like the reference.
+	for _ = 1, rng:NextInteger(1, 2) do
+		local sx = rng:NextNumber(0.2, 0.48)
+		local sy = rng:NextNumber(0.18, 0.42)
+		local px = rng:NextNumber(-half + 0.3, half - 0.3)
+		local py = rng:NextNumber(-half + 0.32, half - 0.32)
+		local pz = block.Position.Z - half + rng:NextNumber(0.01, 0.07)
+		pebble(Vector3.new(sx, sy, 0.16), Vector3.new(block.Position.X + px, block.Position.Y + py, pz), Vector3.new(rng:NextInteger(-18, 18), rng:NextInteger(0, 45), rng:NextInteger(-18, 18)))
+	end
+end
 
 local function currentSurfaceY()
 	return START_SURFACE_Y - topLayer * BLOCK
@@ -295,6 +345,9 @@ local function makeLayer(layerNumber)
 			block:SetAttribute("DepthLayer", layerNumber)
 			block:SetAttribute("ResourceType", resourceType)
 			block.Parent = mine
+			if layerNumber % 4 == 1 then
+				addSoilRubble(block, x, z, layerNumber)
+			end
 			layerBlocks[#layerBlocks + 1] = block
 		end
 	end
