@@ -81,7 +81,7 @@ for _, player in Players:GetPlayers() do setPlayerStats(player) end
 local function parkCharacter(character)
 	local root = character:WaitForChild("HumanoidRootPart", 5)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	for _, descendant in character:GetDescendants() do
+	local function hideDescendant(descendant)
 		if descendant:IsA("BasePart") then
 			descendant.Transparency = 1
 			descendant.LocalTransparencyModifier = 1
@@ -90,6 +90,8 @@ local function parkCharacter(character)
 			descendant.Transparency = 1
 		end
 	end
+	character.DescendantAdded:Connect(hideDescendant)
+	for _, descendant in character:GetDescendants() do hideDescendant(descendant) end
 	if root then
 		root.Anchored = true
 		root.CFrame = CFrame.new(0, 500, 0)

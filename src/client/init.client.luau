@@ -15,9 +15,11 @@ local function frameMine()
 	RunService:BindToRenderStep("FollowMiner", Enum.RenderPriority.Camera.Value + 1, function()
 		if not miner.Parent then return end
 		local minerPosition = miner:GetPivot().Position
-		-- Keep the 12x12 shaft square to the screen; only a small tilt reveals its top.
-		local viewTarget = minerPosition + Vector3.new(0, -3, 0)
-		camera.CFrame = CFrame.lookAt(minerPosition + Vector3.new(0, 10, -92), viewTarget)
+		-- Hold the mine in frame while the worker moves across its surface.
+		-- Aim near the middle of the visible shaft so the top does not sit at screen center.
+		local viewTarget = Vector3.new(0, minerPosition.Y - 25, 0)
+		local cameraPosition = Vector3.new(0, minerPosition.Y + 8, -125)
+		camera.CFrame = CFrame.lookAt(cameraPosition, viewTarget)
 	end)
 end
 
