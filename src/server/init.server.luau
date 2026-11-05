@@ -237,7 +237,7 @@ local function makeLayer(layerNumber)
 				resourceType = "Iron"
 			elseif layerNumber >= 4 and roll <= 15 then
 				resourceType = "Copper"
-			elseif layerNumber > 0 and layerNumber < 4 and roll <= 6 then
+			elseif layerNumber < 4 and roll <= 6 then
 				resourceType = "Copper"
 			end
 			if layerNumber == topLayer then
