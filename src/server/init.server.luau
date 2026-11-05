@@ -220,7 +220,8 @@ local function makeLayer(layerNumber)
 		for z = 0, GRID - 1 do
 			local block = Instance.new("Part")
 			block.Name = "OreBlock"
-			block.Size = Vector3.new(BLOCK - 0.1, BLOCK - 0.1, BLOCK - 0.1)
+			-- Touching faces make the terrain read as one continuous block.
+			block.Size = Vector3.new(BLOCK, BLOCK, BLOCK)
 			block.Position = Vector3.new(CENTER_X + (x - (GRID - 1) / 2) * BLOCK, y, CENTER_Z + (z - (GRID - 1) / 2) * BLOCK)
 			block.Anchored = true
 			block.Material = Enum.Material.SmoothPlastic

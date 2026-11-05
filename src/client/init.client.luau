@@ -15,10 +15,10 @@ local function frameMine()
 	RunService:BindToRenderStep("FollowMiner", Enum.RenderPriority.Camera.Value + 1, function()
 		if not miner.Parent then return end
 		local minerPosition = miner:GetPivot().Position
-		-- Hold the mine in frame while the worker moves across its surface.
-		-- Aim near the middle of the visible shaft so the top does not sit at screen center.
-		local viewTarget = Vector3.new(0, minerPosition.Y - 25, 0)
-		local cameraPosition = Vector3.new(0, minerPosition.Y + 8, -125)
+		-- Look down across the field from a little farther back, like a diorama view.
+		-- The horizontal focus stays on the mine while it follows the worker downwards.
+		local viewTarget = Vector3.new(0, minerPosition.Y - 18, 0)
+		local cameraPosition = Vector3.new(0, minerPosition.Y + 70, -110)
 		camera.CFrame = CFrame.lookAt(cameraPosition, viewTarget)
 	end)
 end
