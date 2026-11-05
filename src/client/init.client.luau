@@ -17,6 +17,8 @@ local function makeHud()
 	local stone = stats:WaitForChild("Stone")
 	local iron = stats:WaitForChild("Iron")
 	local gold = stats:WaitForChild("Gold")
+	local mushroom = stats:WaitForChild("Mushroom")
+	local pumpkin = stats:WaitForChild("Pumpkin")
 	local buyFarmerRemote = ReplicatedStorage:WaitForChild("BuyFarmer")
 
 	local gui = Instance.new("ScreenGui")
@@ -28,7 +30,7 @@ local function makeHud()
 	local panel = Instance.new("Frame")
 	panel.Name = "ResourcePanel"
 	panel.Position = UDim2.fromOffset(18, 18)
-	panel.Size = UDim2.fromOffset(288, 188)
+	panel.Size = UDim2.fromOffset(288, 204)
 	panel.BackgroundColor3 = Color3.fromRGB(35, 42, 49)
 	panel.BackgroundTransparency = 0.08
 	panel.Parent = gui
@@ -39,19 +41,19 @@ local function makeHud()
 	outline.Thickness = 2
 	outline.Parent = panel
 
-	local function makeCounter(name, title, x, tint)
+	local function makeCounter(name, title, x, y, tint)
 		local card = Instance.new("Frame")
 		card.Name = name
-		card.Position = UDim2.fromOffset(x, 10)
-		card.Size = UDim2.fromOffset(62, 48)
+		card.Position = UDim2.fromOffset(x, y)
+		card.Size = UDim2.fromOffset(84, 38)
 		card.BackgroundColor3 = Color3.fromRGB(50, 59, 63)
 		card.Parent = panel
 		addCorner(card, 9)
 
 		local heading = Instance.new("TextLabel")
 		heading.BackgroundTransparency = 1
-		heading.Position = UDim2.fromOffset(9, 4)
-		heading.Size = UDim2.new(1, -18, 0, 14)
+		heading.Position = UDim2.fromOffset(8, 2)
+		heading.Size = UDim2.new(1, -16, 0, 12)
 		heading.Font = Enum.Font.GothamBold
 		heading.Text = title
 		heading.TextColor3 = tint
@@ -62,25 +64,27 @@ local function makeHud()
 		local amount = Instance.new("TextLabel")
 		amount.Name = "Amount"
 		amount.BackgroundTransparency = 1
-		amount.Position = UDim2.fromOffset(9, 18)
-		amount.Size = UDim2.new(1, -18, 0, 25)
+		amount.Position = UDim2.fromOffset(8, 14)
+		amount.Size = UDim2.new(1, -16, 0, 22)
 		amount.Font = Enum.Font.GothamBold
 		amount.TextColor3 = Color3.fromRGB(255, 255, 255)
-		amount.TextSize = 16
+		amount.TextSize = 15
 		amount.TextXAlignment = Enum.TextXAlignment.Left
 		amount.Parent = card
 		return amount
 	end
 
-	local copperAmount = makeCounter("CopperCounter", "KUPFER", 10, Color3.fromRGB(255, 193, 71))
-	local ironAmount = makeCounter("IronCounter", "EISEN", 76, Color3.fromRGB(215, 220, 222))
-	local goldAmount = makeCounter("GoldCounter", "GOLD", 142, Color3.fromRGB(255, 211, 76))
-	local stoneAmount = makeCounter("StoneCounter", "STEIN", 208, Color3.fromRGB(190, 199, 199))
+	local copperAmount = makeCounter("CopperCounter", "KUPFER", 10, 10, Color3.fromRGB(255, 193, 71))
+	local ironAmount = makeCounter("IronCounter", "EISEN", 102, 10, Color3.fromRGB(215, 220, 222))
+	local goldAmount = makeCounter("GoldCounter", "GOLD", 194, 10, Color3.fromRGB(255, 211, 76))
+	local stoneAmount = makeCounter("StoneCounter", "STEIN", 10, 54, Color3.fromRGB(190, 199, 199))
+	local mushroomAmount = makeCounter("MushroomCounter", "PILZE", 102, 54, Color3.fromRGB(255, 143, 143))
+	local pumpkinAmount = makeCounter("PumpkinCounter", "KÜRBIS", 194, 54, Color3.fromRGB(255, 175, 83))
 
 	local farmerCard = Instance.new("Frame")
 	farmerCard.Name = "FarmerCounter"
-	farmerCard.Position = UDim2.fromOffset(10, 66)
-	farmerCard.Size = UDim2.fromOffset(268, 31)
+	farmerCard.Position = UDim2.fromOffset(10, 98)
+	farmerCard.Size = UDim2.fromOffset(268, 28)
 	farmerCard.BackgroundColor3 = Color3.fromRGB(50, 59, 63)
 	farmerCard.Parent = panel
 	addCorner(farmerCard, 9)
@@ -99,7 +103,7 @@ local function makeHud()
 	local farmerAmount = Instance.new("TextLabel")
 	farmerAmount.BackgroundTransparency = 1
 	farmerAmount.Position = UDim2.new(1, -74, 0, 0)
-	farmerAmount.Size = UDim2.fromOffset(64, 31)
+	farmerAmount.Size = UDim2.fromOffset(64, 28)
 	farmerAmount.Font = Enum.Font.GothamBold
 	farmerAmount.TextColor3 = Color3.fromRGB(255, 255, 255)
 	farmerAmount.TextSize = 14
@@ -108,8 +112,8 @@ local function makeHud()
 
 	local buyButton = Instance.new("TextButton")
 	buyButton.Name = "BuyFarmerButton"
-	buyButton.Position = UDim2.fromOffset(10, 105)
-	buyButton.Size = UDim2.new(1, -20, 0, 40)
+	buyButton.Position = UDim2.fromOffset(10, 133)
+	buyButton.Size = UDim2.new(1, -20, 0, 38)
 	buyButton.BackgroundColor3 = Color3.fromRGB(142, 190, 68)
 	buyButton.AutoButtonColor = false
 	buyButton.Font = Enum.Font.GothamBold
@@ -121,8 +125,8 @@ local function makeHud()
 	local status = Instance.new("TextLabel")
 	status.Name = "Status"
 	status.BackgroundTransparency = 1
-	status.Position = UDim2.fromOffset(10, 150)
-	status.Size = UDim2.new(1, -20, 0, 28)
+	status.Position = UDim2.fromOffset(10, 176)
+	status.Size = UDim2.new(1, -20, 0, 20)
 	status.Font = Enum.Font.Gotham
 	status.Text = ""
 	status.TextColor3 = Color3.fromRGB(228, 231, 224)
@@ -138,6 +142,8 @@ local function makeHud()
 		ironAmount.Text = tostring(iron.Value)
 		goldAmount.Text = tostring(gold.Value)
 		stoneAmount.Text = tostring(stone.Value)
+		mushroomAmount.Text = tostring(mushroom.Value)
+		pumpkinAmount.Text = tostring(pumpkin.Value)
 		farmerAmount.Text = string.format("%d / %d", farmers.Value, maxFarmers)
 		if farmers.Value >= maxFarmers then
 			buyButton.Text = "MAXIMALE ANZAHL"
@@ -157,6 +163,8 @@ local function makeHud()
 	iron.Changed:Connect(refresh)
 	gold.Changed:Connect(refresh)
 	stone.Changed:Connect(refresh)
+	mushroom.Changed:Connect(refresh)
+	pumpkin.Changed:Connect(refresh)
 	farmers.Changed:Connect(refresh)
 	refresh()
 

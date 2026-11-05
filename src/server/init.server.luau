@@ -74,6 +74,12 @@ local function setPlayerStats(player)
 	local gold = stats:FindFirstChild("Gold") or Instance.new("IntValue")
 	gold.Name = "Gold"
 	gold.Parent = stats
+	local mushroom = stats:FindFirstChild("Mushroom") or Instance.new("IntValue")
+	mushroom.Name = "Mushroom"
+	mushroom.Parent = stats
+	local pumpkin = stats:FindFirstChild("Pumpkin") or Instance.new("IntValue")
+	pumpkin.Name = "Pumpkin"
+	pumpkin.Parent = stats
 	copper.Value = copper.Value or 0
 	depth.Value = topLayer
 	mineLevel.Value = math.floor(topLayer / 4) + 1
@@ -83,6 +89,8 @@ local function setPlayerStats(player)
 	stone.Value = stone.Value or 0
 	iron.Value = iron.Value or 0
 	gold.Value = gold.Value or 0
+	mushroom.Value = mushroom.Value or 0
+	pumpkin.Value = pumpkin.Value or 0
 end
 
 Players.PlayerAdded:Connect(setPlayerStats)
@@ -256,7 +264,11 @@ local function makeLayer(layerNumber)
 			block.Material = Enum.Material.SmoothPlastic
 			local roll = (x * 37 + z * 17 + layerNumber * 13) % 100 + 1
 			local resourceType = "Stone"
-			if layerNumber >= 12 and roll <= 2 then
+			if layerNumber == 0 and roll <= 12 then
+				resourceType = "Mushroom"
+			elseif layerNumber >= 8 and layerNumber % 8 == 0 and roll <= 12 then
+				resourceType = "Pumpkin"
+			elseif layerNumber >= 12 and roll <= 2 then
 				resourceType = "Gold"
 			elseif layerNumber >= 4 and roll <= 9 then
 				resourceType = "Iron"
@@ -267,11 +279,15 @@ local function makeLayer(layerNumber)
 			end
 			if layerNumber == topLayer then
 				block.Color = if resourceType == "Stone" then Color3.fromRGB(91, 178, 91)
+					elseif resourceType == "Mushroom" then Color3.fromRGB(218, 75, 78)
+					elseif resourceType == "Pumpkin" then Color3.fromRGB(244, 139, 44)
 					elseif resourceType == "Copper" then Color3.fromRGB(220, 116, 48)
 					elseif resourceType == "Iron" then Color3.fromRGB(190, 196, 199)
 					else Color3.fromRGB(255, 202, 60)
 			else
-				block.Color = if resourceType == "Copper" then Color3.fromRGB(220, 116, 48)
+				block.Color = if resourceType == "Mushroom" then Color3.fromRGB(218, 75, 78)
+					elseif resourceType == "Pumpkin" then Color3.fromRGB(244, 139, 44)
+					elseif resourceType == "Copper" then Color3.fromRGB(220, 116, 48)
 					elseif resourceType == "Iron" then Color3.fromRGB(190, 196, 199)
 					elseif resourceType == "Gold" then Color3.fromRGB(255, 202, 60)
 					else oreColors[colorIndex]
