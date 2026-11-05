@@ -2,6 +2,14 @@
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local upgradeRequest = ReplicatedStorage:FindFirstChild("UpgradeRequest")
+if not upgradeRequest then
+	upgradeRequest = Instance.new("RemoteEvent")
+	upgradeRequest.Name = "UpgradeRequest"
+	upgradeRequest.Parent = ReplicatedStorage
+end
 
 local oldMine = workspace:FindFirstChild("Mine")
 if oldMine then oldMine:Destroy() end
@@ -23,6 +31,8 @@ local START_SURFACE_Y = 90
 -- Negative X appears on the right side of a camera looking in from -Z.
 local STATION_POSITION = Vector3.new(-34, START_SURFACE_Y + 2, 0)
 local topLayer = 0
+local drillLevel = 1
+local refineryLevel = 1
 local layers = {}
 local oreColors = {
 	Color3.fromRGB(128, 82, 54),
@@ -51,9 +61,17 @@ local function setPlayerStats(player)
 	local mineLevel = stats:FindFirstChild("Mine") or Instance.new("IntValue")
 	mineLevel.Name = "Mine"
 	mineLevel.Parent = stats
+	local drill = stats:FindFirstChild("Drill") or Instance.new("IntValue")
+	drill.Name = "Drill"
+	drill.Parent = stats
+	local refinery = stats:FindFirstChild("Refinery") or Instance.new("IntValue")
+	refinery.Name = "Refinery"
+	refinery.Parent = stats
 	copper.Value = copper.Value or 0
 	depth.Value = topLayer
 	mineLevel.Value = math.floor(topLayer / 4) + 1
+	drill.Value = drillLevel
+	refinery.Value = refineryLevel
 end
 
 Players.PlayerAdded:Connect(setPlayerStats)
@@ -63,6 +81,15 @@ for _, player in Players:GetPlayers() do setPlayerStats(player) end
 local function parkCharacter(character)
 	local root = character:WaitForChild("HumanoidRootPart", 5)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	for _, descendant in character:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			descendant.Transparency = 1
+			descendant.LocalTransparencyModifier = 1
+			descendant.CanCollide = false
+		elseif descendant:IsA("Decal") then
+			descendant.Transparency = 1
+		end
+	end
 	if root then
 		root.Anchored = true
 		root.CFrame = CFrame.new(0, 500, 0)
@@ -120,9 +147,9 @@ local station = Instance.new("Model")
 station.Name = "CloudProcessingStation"
 station.Parent = mine
 stationPart(station, "CloudDeck", Vector3.new(24, 1, 18), STATION_POSITION, Color3.fromRGB(235, 246, 255), Enum.Material.SmoothPlastic)
-stationPart(station, "FactoryBody", Vector3.new(10, 7, 8), STATION_POSITION + Vector3.new(2, 4, 0), Color3.fromRGB(208, 222, 231), Enum.Material.SmoothPlastic)
-stationPart(station, "Window", Vector3.new(5, 2, 0.2), STATION_POSITION + Vector3.new(2, 4.5, -4.12), Color3.fromRGB(64, 187, 218), Enum.Material.Neon)
-stationPart(station, "Intake", Vector3.new(5, 1, 4), STATION_POSITION + Vector3.new(-6, 1.2, -3), Color3.fromRGB(255, 171, 58), Enum.Material.Neon)
+local factoryBody = stationPart(station, "FactoryBody", Vector3.new(10, 7, 8), STATION_POSITION + Vector3.new(2, 4, 0), Color3.fromRGB(208, 222, 231), Enum.Material.SmoothPlastic)
+local stationWindow = stationPart(station, "Window", Vector3.new(5, 2, 0.2), STATION_POSITION + Vector3.new(2, 4.5, -4.12), Color3.fromRGB(64, 187, 218), Enum.Material.Neon)
+local stationIntake = stationPart(station, "Intake", Vector3.new(5, 1, 4), STATION_POSITION + Vector3.new(-6, 1.2, -3), Color3.fromRGB(255, 171, 58), Enum.Material.Neon)
 stationPart(station, "StorageBin", Vector3.new(5, 3, 5), STATION_POSITION + Vector3.new(7, 2.5, 4), Color3.fromRGB(81, 122, 147), Enum.Material.SmoothPlastic)
 for _, cloudOffset in {Vector3.new(-7, -3, -5), Vector3.new(7, -3, -5), Vector3.new(-7, -3, 5), Vector3.new(7, -3, 5)} do
 	stationPart(station, "Cloud", Vector3.new(5, 4, 5), STATION_POSITION + cloudOffset, Color3.fromRGB(244, 250, 255), Enum.Material.SmoothPlastic, Enum.PartType.Ball)
@@ -138,11 +165,49 @@ local function updateStats()
 		if stats then
 			local depth = stats:FindFirstChild("Depth")
 			local level = stats:FindFirstChild("Mine")
+			local drill = stats:FindFirstChild("Drill")
+			local refinery = stats:FindFirstChild("Refinery")
 			if depth then depth.Value = topLayer end
 			if level then level.Value = math.floor(topLayer / 4) + 1 end
+			if drill then drill.Value = drillLevel end
+			if refinery then refinery.Value = refineryLevel end
 		end
 	end
 end
+
+local function upgradeCost(kind)
+	if kind == "Drill" then
+		return math.floor(25 * 1.65 ^ (drillLevel - 1))
+	end
+	return math.floor(40 * 1.7 ^ (refineryLevel - 1))
+end
+
+local function refreshStationAppearance()
+	local tint = math.min(refineryLevel - 1, 6)
+	factoryBody.Size = Vector3.new(10, 7 + tint * 0.5, 8)
+	factoryBody.Position = STATION_POSITION + Vector3.new(2, 4 + tint * 0.25, 0)
+	local glow = math.min(drillLevel - 1, 6)
+	stationWindow.Color = Color3.fromRGB(64 + glow * 12, 187 + glow * 8, 218 - glow * 10)
+	stationIntake.Color = Color3.fromRGB(255, 171 + tint * 10, 58 + tint * 8)
+end
+
+upgradeRequest.OnServerEvent:Connect(function(player, kind)
+	if kind ~= "Drill" and kind ~= "Refinery" then return end
+	local stats = player:FindFirstChild("leaderstats")
+	local copper = stats and stats:FindFirstChild("Copper")
+	if not copper then return end
+	local cost = upgradeCost(kind)
+	if copper.Value < cost then return end
+	copper.Value -= cost
+	if kind == "Drill" then
+		drillLevel += 1
+	else
+		refineryLevel += 1
+	end
+	updateStats()
+	refreshStationAppearance()
+end)
+refreshStationAppearance()
 
 local function makeLayer(layerNumber)
 	local layerBlocks = {}
@@ -232,8 +297,9 @@ while true do
 	if chosen then
 		miner:PivotTo(CFrame.new(chosen.Position.X, currentSurfaceY() + 2, chosen.Position.Z))
 		chosen.Color = Color3.fromRGB(255, 194, 81)
-		task.wait(0.32)
-		local copperReward = if chosen:GetAttribute("CopperVein") then 5 else 1
+		task.wait(math.max(0.16, 0.32 - (drillLevel - 1) * 0.025))
+		local baseReward = if chosen:GetAttribute("CopperVein") then 5 else 1
+		local copperReward = math.floor(baseReward * (1 + 0.25 * (refineryLevel - 1)))
 		local shipmentOrigin = chosen.Position
 		breakBlock(chosen)
 		shipOre(shipmentOrigin, copperReward)
