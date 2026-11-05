@@ -167,12 +167,15 @@ local function farmerPrice()
 	return 25 * #miners
 end
 
-buyFarmer.OnServerInvoke = function(player)
+buyFarmer.OnServerInvoke = function(player, action)
 	if typeof(searchOriginX) ~= "number" or typeof(searchOriginZ) ~= "number" then
-		return false, "Mine is loading."
+		return false, "Mine is loading.", nil, MAX_FARMERS
+	end
+	if action == "price" then
+		return true, #miners, farmerPrice(), MAX_FARMERS
 	end
 	if #miners >= MAX_FARMERS then
-		return false, "Maximum number of farmers reached."
+		return false, "Maximum number of farmers reached.", nil, MAX_FARMERS
 	end
 	local stats = player:FindFirstChild("PlayerData")
 	local copper = stats and stats:FindFirstChild("Copper")
@@ -194,7 +197,7 @@ buyFarmer.OnServerInvoke = function(player)
 	table.insert(miners, newMiner)
 	farmerCount = #miners
 	updateStats()
-	return true, #miners, farmerPrice()
+	return true, #miners, farmerPrice(), MAX_FARMERS
 end
 
 local function makeLayer(layerNumber)
