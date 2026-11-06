@@ -1,0 +1,29 @@
+<roblox version="4">
+  <External>null</External>
+  <External>nil</External>
+  <Item class="MeshPart" referent="RBX0">
+    <Properties>
+      <bool name="Anchored">true</bool>
+      <bool name="CanCollide">false</bool>
+      <bool name="CanTouch">false</bool>
+      <bool name="CastShadow">false</bool>
+      <Color3 name="Color">
+        <R>0.4745098</R>
+        <G>0.3019608</G>
+        <B>0.1882353</B>
+      </Color3>
+      <Content name="MeshId"><url>rbxassetid://133110725574592</url></Content>
+      <string name="Name">TerraDirtBlockTemplate</string>
+      <Vector3 name="Position">
+        <X>0</X>
+        <Y>0</Y>
+        <Z>0</Z>
+      </Vector3>
+      <Vector3 name="Size">
+        <X>3</X>
+        <Y>3</Y>
+        <Z>3</Z>
+      </Vector3>
+    </Properties>
+  </Item>
+</roblox>

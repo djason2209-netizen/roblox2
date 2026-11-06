@@ -19,6 +19,7 @@ mine.Parent = workspace
 local BLOCK = 3
 local GRID = 12
 local MAX_FARMERS = 10
+local terraDirtTemplate = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("TerraDirtBlockTemplate")
 -- Keep enough generated depth on screen that the lower end is never visible.
 local VISIBLE_LAYERS = 64
 local CENTER_X = 0
@@ -303,15 +304,6 @@ local function makeLayer(layerNumber)
 	local colorIndex = math.floor(layerNumber / 4) % #oreColors + 1
 	for x = 0, GRID - 1 do
 		for z = 0, GRID - 1 do
-			local block = Instance.new("Part")
-			block.Name = "OreBlock"
-			-- Touching faces make the terrain read as one continuous block.
-			block.Size = Vector3.new(BLOCK, BLOCK, BLOCK)
-			block.Position = Vector3.new(CENTER_X + (x - (GRID - 1) / 2) * BLOCK, y, CENTER_Z + (z - (GRID - 1) / 2) * BLOCK)
-			block.Anchored = true
-			block.CanCollide = false
-			block.CastShadow = false
-			block.Material = Enum.Material.SmoothPlastic
 			local roll = (x * 37 + z * 17 + layerNumber * 13) % 100 + 1
 			local resourceType = "Stone"
 			if layerNumber == 0 and roll <= 12 then
@@ -327,7 +319,27 @@ local function makeLayer(layerNumber)
 			elseif layerNumber < 4 and roll <= 6 then
 				resourceType = "Copper"
 			end
-			if layerNumber == topLayer then
+			-- Use the uploaded Terra mesh for a small number of ordinary soil blocks.
+			-- Its detail is visible without multiplying the mesh over the whole mine.
+			local isTerraDirt = layerNumber % 4 == 1 and resourceType == "Stone" and roll % 12 == 0
+			local block = if isTerraDirt then terraDirtTemplate:Clone() else Instance.new("Part")
+			block.Name = "OreBlock"
+			if isTerraDirt then
+				-- A slight overlap hides pinholes between the irregular sculpted sides.
+				block.Size = Vector3.new(BLOCK * 1.02, BLOCK * 1.02, BLOCK * 1.02)
+				block.Material = Enum.Material.Ground
+			else
+				-- Touching faces make the rest of the terrain read as one continuous block.
+				block.Size = Vector3.new(BLOCK, BLOCK, BLOCK)
+				block.Material = Enum.Material.SmoothPlastic
+			end
+			block.Position = Vector3.new(CENTER_X + (x - (GRID - 1) / 2) * BLOCK, y, CENTER_Z + (z - (GRID - 1) / 2) * BLOCK)
+			block.Anchored = true
+			block.CanCollide = false
+			block.CastShadow = false
+			if isTerraDirt then
+				block.Color = Color3.fromRGB(121, 77, 48)
+			elseif layerNumber == topLayer then
 				block.Color = if resourceType == "Stone" then Color3.fromRGB(91, 178, 91)
 					elseif resourceType == "Mushroom" then Color3.fromRGB(218, 75, 78)
 					elseif resourceType == "Pumpkin" then Color3.fromRGB(244, 139, 44)
@@ -344,8 +356,9 @@ local function makeLayer(layerNumber)
 			end
 			block:SetAttribute("DepthLayer", layerNumber)
 			block:SetAttribute("ResourceType", resourceType)
+			block:SetAttribute("BlockStyle", if isTerraDirt then "TerraDirt" else "Standard")
 			block.Parent = mine
-			if layerNumber % 4 == 1 then
+			if layerNumber % 4 == 1 and not isTerraDirt then
 				addSoilRubble(block, x, z, layerNumber)
 			end
 			layerBlocks[#layerBlocks + 1] = block
